@@ -55,6 +55,18 @@ if Code.ensure_loaded?(SweetXml) do
       {:ok, Map.put(resp, :body, parsed_body)}
     end
 
+    def parse({:ok, %{body: xml} = resp}, :get_metric_data) do
+      parsed_body =
+        xml
+        |> SweetXml.xpath(
+          ~x"//GetMetricDataResponse",
+          metric_data: metric_data_description(),
+          request_id: ~x"./ResponseMetadata/RequestId/text()"s
+        )
+
+      {:ok, Map.put(resp, :body, parsed_body)}
+    end
+
     def parse({:ok, %{body: xml} = resp}, :list_dashboards) do
       parsed_body =
         xml
@@ -174,6 +186,16 @@ if Code.ensure_loaded?(SweetXml) do
       ]
     end
 
+    defp metric_data_description do
+      [
+        ~x"./GetMetricDataResult/MetricDataResults/member"l,
+        timestamps: ~x"./Timestamps/member/text()"ls |> SweetXml.transform_by(&to_timestamp/1),
+        values: ~x"./Values/member/text()"lf,
+        label: ~x"./Label/text()"s,
+        id: ~x"./Id/text()"s,
+      ]
+    end
+
     defp dashboards_description() do
       [
         ~x"./ListDashboardsResult/DashboardEntries/member"l,
@@ -207,6 +229,13 @@ if Code.ensure_loaded?(SweetXml) do
 
     defp to_boolean(xpath) do
       xpath |> SweetXml.transform_by(&(&1 == "true"))
+    end
+
+    defp to_timestamp(list) when is_list(list), do: Enum.map(list, &to_timestamp/1)
+    defp to_timestamp(xpath) do
+      xpath
+      |> DateTime.from_iso8601()
+      |> elem(1)
     end
   end
 else

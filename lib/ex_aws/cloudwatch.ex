@@ -325,6 +325,37 @@ defmodule ExAws.Cloudwatch do
     |> build_request(:get_metric_statistics)
   end
 
+
+
+  @type get_metric_data_query :: [
+    id: binary,
+    metric_stat: get_metric_data_query_stat
+  ]
+  @type get_metric_data_query_stat :: [
+    metric: get_metric_data_query_stat_metric,
+    period: integer,
+    stat: binary,
+    unit: binary
+  ]
+  @type get_metric_data_query_stat_metric :: [
+    namespace: binary,
+    metric_name: binary,
+    dimensions: [dimension]
+  ]
+  @spec get_metric_data(
+    start_time :: %DateTime{},
+    end_time :: %DateTime{},
+    queries :: [get_metric_data_query]
+  ) :: ExAws.Operation.Query.t()
+  def get_metric_data(start_time, end_time, queries) do
+    [
+      {:start_time, start_time},
+      {:end_time, end_time},
+      {:metric_data_queries, queries}
+    ]
+    |> build_request(:get_metric_data)
+  end
+
   @doc """
   Returns a list of the dashboards for your account.
 
@@ -660,8 +691,26 @@ defmodule ExAws.Cloudwatch do
     |> format(prefix: "MetricData.member")
   end
 
+  defp format_param({:metric_data_queries, metric_data_queries}) do
+    metric_data_queries
+    |> Enum.map(fn(metric_data_query) -> format_param({:metric_data_query, metric_data_query}) end)
+    |> format(prefix: "MetricDataQueries.member")
+  end
+
+  defp format_param({:metric_data_query, metric_data_query}) do
+    metric_data_query |> Enum.flat_map(&format_param/1)
+  end
+
   defp format_param({:metric_datum, metric_datum}) do
     metric_datum |> Enum.flat_map(&format_param/1)
+  end
+
+  defp format_param({:metric_stat, metric_stat}) do
+    metric_stat |> Enum.flat_map(&format_param/1) |> format(prefix: "MetricStat")
+  end
+
+  defp format_param({:metric, metric}) do
+    metric |> Enum.flat_map(&format_param/1) |> format(prefix: "Metric")
   end
 
   defp format_param({:ok_actions, ok_actions}) do
